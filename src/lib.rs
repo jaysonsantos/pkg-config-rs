@@ -62,6 +62,9 @@
 
 #![doc(html_root_url = "https://docs.rs/pkg-config/0.3")]
 
+#[cfg(feature = "extra-args-from-env")]
+extern crate shlex;
+
 use std::collections::HashMap;
 use std::env;
 use std::error;
@@ -518,6 +521,9 @@ impl Config {
         }
         cmd.args(args).args(&self.extra_args);
 
+        #[cfg(feature = "extra-args-from-env")]
+        cmd.args(&self.get_extra_args_from_env());
+
         if let Some(value) = self.targetted_env_var("PKG_CONFIG_PATH") {
             cmd.env("PKG_CONFIG_PATH", value);
         }
@@ -573,6 +579,20 @@ impl Config {
             false
         } else {
             false
+        }
+    }
+
+    #[cfg(feature = "extra-args-from-env")]
+    fn get_extra_args_from_env(&self) -> Vec<String> {
+        if let Some(extra_args) = env::var_os("PKG_CONFIG_EXTRA_ARGS") {
+            shlex::split(&extra_args.to_string_lossy()).unwrap_or_else(|| {
+                panic!(
+                    "PKG_CONFIG_EXTRA_ARGS contains invalid shell words: {:?}",
+                    extra_args
+                )
+            })
+        } else {
+            Vec::new()
         }
     }
 }

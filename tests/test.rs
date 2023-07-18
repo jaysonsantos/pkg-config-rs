@@ -3,9 +3,9 @@ extern crate pkg_config;
 extern crate lazy_static;
 
 use pkg_config::Error;
-use std::env;
 use std::path::PathBuf;
 use std::sync::Mutex;
+use std::{env, vec};
 
 lazy_static! {
     static ref LOCK: Mutex<()> = Mutex::new(());
@@ -18,6 +18,7 @@ fn reset() {
             || k.contains("PKG_CONFIG_ALLOW_CROSS")
             || k.contains("PKG_CONFIG_SYSROOT_DIR")
             || k.contains("FOO_NO_PKG_CONFIG")
+            || k.contains("PKG_CONFIG_EXTRA_ARGS")
         {
             env::remove_var(&k);
         }
@@ -317,4 +318,16 @@ fn rpath() {
     assert!(lib
         .ld_args
         .contains(&vec!["-rpath".to_string(), "/usr/local/lib".to_string(),]));
+}
+
+#[cfg(feature = "extra-args-from-env")]
+#[test]
+fn extra_args() {
+    let _g = LOCK.lock();
+    reset();
+
+    env::set_var("PKG_CONFIG_EXTRA_ARGS", format!(r#"--define-variable=prefix="/tmp/custom-prefix""#));
+
+    let lib = find("foo").unwrap();
+    assert_eq!(lib.link_paths, [PathBuf::from("/tmp/custom-prefix/lib/valgrind")]);
 }
